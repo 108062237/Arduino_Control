@@ -2,25 +2,21 @@
 // 使用電流控風扇轉速
 // 精進保護機制
 // 電流SENSOR 使用 ACS758100U
-// 增加 LCD 顯示
+//  增加 LCD 顯示
 
 #include <Wire.h>
-//#include <LiquidCrystal_I2C.h>
-#include <SoftwareSerial.h>
-
-SoftwareSerial Master(10, 11);
+#include <LiquidCrystal_I2C.h>
 
 #define zero_current 0.6
 #define A 0.06
 
-const int transferPin = 2;   // RS485 PORT
-const int buttonPin = 3;      // 按鈕(pushbutton)
-const int highsideswitch = 7; // 高側開關
+const int buttonPin = 2;      // 按鈕(pushbutton)
+const int highsideswitch = 3; // 高側開關
 const int relayPin = 4;       // 開關繼電器(Relay)
-const int relay = 7;          // 電磁閥繼電器
+const int relay = 5;          // 電磁閥繼電器
 const int fanPin = 6;         // 風扇
 const int buzzPin = 8;        // 蜂鳴器
-
+const int transferPin = 11;   // RS485 PORT
 unsigned int i;               // 蜂鳴器變數
 unsigned int j;               // 蜂鳴器變數
 unsigned long time_now = 0;
@@ -37,9 +33,9 @@ int av;
 float power;
 int po;
 
-int buttonState = 0;
+int buttonState;
 
-//LiquidCrystal_I2C lcd(0x27, 16, 2); // set the LCD address to 0x27 for a 16 chars and 2 line display
+LiquidCrystal_I2C lcd(0x27, 16, 2); // set the LCD address to 0x27 for a 16 chars and 2 line display
 
 // 設定電磁閥開啟與間隔時間
 const int valveopentime = 1000;    // 設定電磁閥開啟時間
@@ -73,15 +69,12 @@ void setup()
     pinMode(highsideswitch, OUTPUT); // 把HSS 設置成 OUTPUT
     pinMode(buzzPin, OUTPUT);        // 把 buzz 設置成 OUTPUT
     Serial.begin(9600);
-    Master.begin(38400);
-    digitalWrite(transferPin, LOW);
-    digitalWrite(buttonPin, LOW);
 
-    /*lcd.begin(); // initialize the lcd
+    lcd.begin(); // initialize the lcd
     lcd.backlight();
     lcd.print("Eco Energy Tec "); // Print a message to the LCD.
     lcd.setCursor(0, 1);
-    lcd.print("FC Controller");*/
+    lcd.print("FC Controller");
 }
 
 void switchRelay()
@@ -92,14 +85,13 @@ void switchRelay()
         relayState = 1;                 // 把繼電器狀態改為 OFF
     digitalWrite(relayPin, relayState); // 讓繼電器作動, 切換開關
 }
-
-/*void valve()
+void valve()
 {
-    if (all_Timer - time_previous > valveopentime) 
-    {                           
+    if (all_Timer - time_previous > valveopentime)
+    {                           // 當前的時間，如果超過暫存器 200 (即 0.2S)則執行以下程式
         digitalWrite(relay, 0); // turn the LED on (HIGH is the voltage level)
         // delay(500);               // wait for a second
-        Serial.println("CLOSE");
+        // Serial.print("OPEN");
         time_previous += valveopentime; // 執行後則將暫存器數值往上累加相同的單位
     }
     if (all_Timer - time_previous_1 > valveclosetime)
@@ -107,22 +99,11 @@ void switchRelay()
         digitalWrite(relay, 1); // turn the LED off by making the voltage LOW
                                 // delay(15000);  // wait for a second
         time_previous_1 += valveclosetime;
-        Serial.println("OPEN");
-    }
-}*/
-
-void valve() {
-    if (all_Timer - time_previous >= valveclosetime) {
-        Serial.println("OPEN");
-        digitalWrite(relay, HIGH);  
-        delay(valveopentime); 
-        Serial.println("CLOSE");
-        digitalWrite(relay, LOW); 
-        time_previous = all_Timer; 
+        // Serial.print("Close");
     }
 }
 
-/*void voltage()
+void voltage()
 {
     double val = analogRead(A0);
     double vol = 0;
@@ -133,15 +114,7 @@ void valve() {
         vot = vol / 100;
     }
     // Serial.print(volt);
-}*/
-
-void voltage(){
-  double val = analogRead(A0);
-  volt = (val /65.2)*5;
-  vot= volt*10;
- //Serial.print(volt);
 }
-
 void current()
 {
     float average = 0;
@@ -168,13 +141,12 @@ void watt()
     power = volt * ave;
     po = power * 10;
 }
-
 void temp()
 {
     float temp = 0;
     int value = analogRead(A2);
     // for(int a = 0; a < 1000; a++) {
-    temp = (value / 1023.0) * 500;
+    temp = ((value / 1023.0) * 500);
     disp = temp - 60;
     dis = temp * 10;
     delay(10);
@@ -188,7 +160,7 @@ void temp()
 void fancontrol()
 {
     if (ave < 1)
-    { 
+    { // 溫度小於等於30度：風扇轉速50
         analogWrite(fanPin, 120);
     }
     if (ave >= 1 && ave <= 5)
@@ -196,19 +168,19 @@ void fancontrol()
         analogWrite(fanPin, 150);
     }
     if (ave > 5 && ave <= 10)
-    { 
+    { // 溫度大於等於41度；風扇轉速200
         analogWrite(fanPin, 170);
     }
     if (ave > 10 && ave <= 12)
-    { 
+    { // 溫度大於等於41度；風扇轉速200
         analogWrite(fanPin, 220);
     }
     if (ave > 12)
-    { 
+    { // 溫度大於等於41度；風扇轉速200
         analogWrite(fanPin, 255);
     }
     if (disp > 40)
-    { // 溫度大於40度;風扇轉速255
+    { // 溫度大於31度小於40度;風扇轉速150
         analogWrite(fanPin, 255);
     }
     if (disp > valveTEMP && volt > valveVOLT)
@@ -222,7 +194,7 @@ void showdata()
 {
     if (all_Timer - time_previous_2 > datacatchtime)
     { // 當前的時間，如果超過暫存器 200 (即 0.2S)則執行以下程式
-        /*lcd.begin();
+        lcd.begin();
         lcd.print(volt); // Print a message to the LCD.
         lcd.print("V");
         lcd.print(ave); // Print a message to the LCD.
@@ -231,14 +203,14 @@ void showdata()
         lcd.print(disp);
         lcd.print("Temp");
         lcd.print(power);
-        lcd.print("W");*/
-        time_previous_2 = all_Timer; // refresh
+        lcd.print("W");
+        time_previous_2 += datacatchtime; // 執行後則將暫存器數值往上累加相同的單位
     }
 }
 
 void hss()
 {
-    if (relayState == 1) 
+    if (relayState == 1)
         digitalWrite(highsideswitch, HIGH);
     else
         digitalWrite(highsideswitch, LOW);
@@ -256,14 +228,14 @@ void buzz()
 
 void buzz_1()
 {
-    for (i = 0; i < 250; i++) 
+    for (i = 0; i < 250; i++) // 辒出一个频率的声音
     {
-        digitalWrite(buzzPin, HIGH); 
+        digitalWrite(buzzPin, HIGH); // 发声音
         delay(1);                    // 延时1ms
         digitalWrite(buzzPin, LOW);  // 不发声音
         delay(1);                    // 延时ms
     }
-    for (i = 0; i < 50; i++) 
+    for (i = 0; i < 50; i++) // 辒出另一个频率癿声音
     {
         digitalWrite(buzzPin, HIGH); // 发声音
         delay(2);                    // 延时2ms
@@ -291,21 +263,21 @@ void buzz_2()
 }
 void buzz_3()
 {
-    for (i = 0; i < 10; i++) 
+    for (i = 0; i < 10; i++) // 辒出一个频率的声音
     {
         digitalWrite(buzzPin, HIGH); // 发声音
         delay(1);                    // 延时1ms
         digitalWrite(buzzPin, LOW);  // 不发声音
         delay(1);                    // 延时ms
     }
-    for (i = 0; i < 200; i++) 
+    for (i = 0; i < 200; i++) // 辒出另一个频率癿声音
     {
         digitalWrite(buzzPin, HIGH); // 发声音
         delay(2);                    // 延时2ms
         digitalWrite(buzzPin, LOW);  // 不发声音
         delay(2);                    // 延时2ms
     }
-    for (i = 0; i < 100; i++) 
+    for (i = 0; i < 100; i++) // 辒出另一个频率癿声音
     {
         digitalWrite(buzzPin, HIGH); // 发声音
         delay(1);                    // 延时2ms
@@ -313,7 +285,6 @@ void buzz_3()
         delay(1);                    // 延时2ms
     }
 }
-
 int volt_status = 0; // 宣告電壓狀態起始值
 long volt_temp;      // 宣告時間暫存變數
 
@@ -433,7 +404,6 @@ void highpower()
     }
     delay(1);
 }
-
 void start()
 {
     digitalWrite(relay, HIGH);
@@ -450,7 +420,7 @@ void start()
     buzz();
 }
 
-/*void senddata()
+void senddata()
 { // 數據擷取顯示程式碼
     voltage();
     // LIvoltage();
@@ -481,61 +451,33 @@ void start()
         digitalWrite(transferPin, LOW);
         break;
     }
-}*/
-
-void senddata()
-{ // 數據擷取顯示程式碼
-    voltage();
-    // LIvoltage();
-    current();
-    temp();
-    watt();
-    mybuffer[0] = 1;
-    mybuffer[1] = vot >> 8;
-    mybuffer[2] = vot;
-    mybuffer[3] = av >> 8;
-    mybuffer[4] = av;
-    mybuffer[5] = dis >> 8;
-    mybuffer[6] = dis;
-    mybuffer[7] = po >> 8;
-    mybuffer[8] = po;
-        
-    delay(500); 
-    digitalWrite(transferPin, HIGH);
-    for (int i = 0; i < 9; i++) {
-        delay(1);
-        Master.write(mybuffer[i]);
-        delay(1);
-    }
-    digitalWrite(transferPin, LOW);
 }
 void loop()
 {
     unsigned long now_time = millis(); // millis()函數只能在loop裡面宣告
     all_Timer = now_time;              // 程式開始之後，將millis()時間轉移到全域變數
+
     buttonState = digitalRead(buttonPin); // 檢查按鈕是否被按下(pressed)
-    //buttonState = Serial.read();
-    //Serial.println(buttonState);
     if (buttonState == HIGH)
     { // 有的話，buttonState 會是 HIGH
-        Serial.println("buttom");
+
         switchRelay();
         start();
         hss();
     }
-    if (relayState == 1){
-      
-        //showdata();
-        //senddata();
-        //fancontrol();
-        //voltage();
-        //current();
-        //temp();
-        //watt();
+    if (relayState == 1)
+    {
+        // showdata();
+        // senddata();
+        fancontrol();
+        voltage();
+        current();
+        temp();
+        watt();
         valve();
-        //voltlow();
-        //temphigh();
-        //amphigh();
-        //highpower();
+        voltlow();
+        // temphigh();
+        amphigh();
+        // highpower();
     }
 }
