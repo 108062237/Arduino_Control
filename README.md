@@ -1,6 +1,6 @@
 # Arduino_Control
 
-本程式碼包含了對arduino的控制，詳細可以參考[Notion](https://www.notion.so/Arduino-trace-code-697287b039d5439dbd13ebdabb0b6dad#9cbff0aa142a460b8e604e2f174582f1)。
+本程式碼包含了對arduino的控制，詳細可以參考[Notion](https://www.notion.so/Arduino-trace-code-697287b039d5439dbd13ebdabb0b6dad?pvs=4)。
 
 ## 文件
 
